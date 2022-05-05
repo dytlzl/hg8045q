@@ -1,7 +1,12 @@
 # HG8045Q
+Show devices connected to HG8045Q
+## Installation
+```console
+$ go install github.com/dytlzl/hg8045q@latest
+```
 ## Usage
 ```console
-$ HG8045Q_USERNAME=admin HG8045Q_PASSWORD=password go run .
+$ HG8045Q_USERNAME=admin HG8045Q_PASSWORD=password hg8045q
 IP              MAC ADDRESS         STATUS    HOSTNAME
 192.168.1.1     00:1c:fc:27:ee:eb   Online    iPhone  
 192.168.1.2     a0:83:e0:60:22:a0   Online    MacBook 
