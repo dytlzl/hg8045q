@@ -7,7 +7,7 @@ $ go install github.com/dytlzl/hg8045q@latest
 ## Usage
 ```console
 $ HG8045Q_USERNAME=admin HG8045Q_PASSWORD=password hg8045q
-IP              MAC ADDRESS         STATUS    HOSTNAME
+IP               MAC ADDRESS         STATUS    HOSTNAME
 192.168.1.11     00:1c:fc:27:ee:eb   Online    iPhone  
 192.168.1.12     a0:83:e0:60:22:a0   Online    MacBook 
 192.168.1.13     a0:66:70:32:49:b0   Offline   iMac    
