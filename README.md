@@ -1,6 +1,7 @@
 # HG8045Q
 ## Usage
 ```console
+GLOBAL IP: 39.117.xx.xx
 $ HG8045Q_USERNAME=admin HG8045Q_PASSWORD=password go run .
 IP              MAC ADDRESS         STATUS    HOSTNAME
 192.168.1.1     00:1c:fc:27:ee:eb   Online    iPhone  

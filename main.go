@@ -32,6 +32,10 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	err = GetWanList(ctx)
+	if err != nil {
+		panic(err)
+	}
 	err = GetLanUserDevInfo(ctx)
 	if err != nil {
 		panic(err)
@@ -59,12 +63,14 @@ func GetLanUserDevInfo(ctx context.Context) error {
 	result := string(bytes)
 	start := 0
 	key := "new USERDevice("
+	isFound := false
 	data := make([]UserDevice, 0)
 	for i := range result {
 		if strings.HasPrefix(result[i:], key) {
 			start = i + len(key)
+			isFound = true
 		}
-		if strings.HasPrefix(result[i:], "),") {
+		if isFound && strings.HasPrefix(result[i:], "),") {
 			row := result[start:i]
 			cells := strings.Split(row, ",")
 			data = append(data, UserDevice{
@@ -74,11 +80,42 @@ func GetLanUserDevInfo(ctx context.Context) error {
 				Status:     LRStrip(cells[6]),
 				Hostname:   LRStrip(cells[9]),
 			})
+			isFound = false
 		}
 	}
 	PrintTable([]string{"IP", "MAC ADDRESS", "PORT ID",  "STATUS", "HOSTNAME"}, data, func(d UserDevice) []string {
 		return []string{d.IP, d.MACAddress, d.PortID, d.Status, d.Hostname}
 	}, "")
+	return nil
+}
+
+func GetWanList(ctx context.Context) error {
+	request, err := http.NewRequestWithContext(ctx, "GET", "http://192.168.1.1/html/bbsp/common/wan_list.asp", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(request)
+	bytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	result := string(bytes)
+	start := 0
+	key := "new WanIP("
+	isFound := false
+	for i := range result {
+		if strings.HasPrefix(result[i:], key) {
+			start = i + len(key)
+			isFound = true
+		}
+		if isFound && strings.HasPrefix(result[i:], "),") {
+			row := result[start:i]
+			cells := strings.Split(row, ",")
+			isFound = false
+			fmt.Println("GLOBAL IP:", LRStrip(cells[12]))
+			return nil
+		}
+	}
 	return nil
 }
 
@@ -138,6 +175,15 @@ func Login(ctx context.Context, randCount string) error {
 	if len(resp.Header["Set-Cookie"]) == 0 {
 		return errors.New("login failed")
 	}
+	if err != nil {
+		return err
+	}
+
+	request, err = http.NewRequestWithContext(ctx, "GET", "http://192.168.1.1/frame.asp", nil)
+	if err != nil {
+		return err
+	}
+	resp, err = client.Do(request)
 	if err != nil {
 		return err
 	}
