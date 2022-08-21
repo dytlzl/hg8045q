@@ -23,7 +23,7 @@ func init() {
 
 func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-    defer cancel()
+	defer cancel()
 	randCount, err := GetRandCount(ctx)
 	if err != nil {
 		panic(err)
@@ -32,11 +32,16 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	defer Logout(ctx)
 	err = GetWanList(ctx)
 	if err != nil {
 		panic(err)
 	}
 	err = GetLanUserDevInfo(ctx)
+	if err != nil {
+		panic(err)
+	}
+	err = dhcpStaticIPConfigs(ctx)
 	if err != nil {
 		panic(err)
 	}
@@ -50,12 +55,60 @@ type UserDevice struct {
 	PortID     string
 }
 
+type dhcpConfig struct {
+	Domain     string
+	IsEnabled  bool
+	IP         string
+	MACAddress string
+}
+
+func dhcpStaticIPConfigs(ctx context.Context) error {
+	request, err := http.NewRequestWithContext(ctx, "GET", "http://192.168.1.1/html/bbsp/dhcpstatic/dhcpstatic.asp", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(request)
+	bytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	result := string(bytes)
+	start := 0
+	key := "new stDhcp("
+	isFound := false
+	data := make([]dhcpConfig, 0)
+	for i := range result {
+		if strings.HasPrefix(result[i:], key) {
+			start = i + len(key)
+			isFound = true
+		}
+		if isFound && strings.HasPrefix(result[i:], "),") {
+			row := result[start:i]
+			cells := strings.Split(row, ",")
+			data = append(data, dhcpConfig{
+				Domain:     strings.Trim(cells[0], "\""),
+				IsEnabled:  cells[1] == "1",
+				IP:         strings.Trim(cells[2], "\""),
+				MACAddress: strings.Trim(cells[3], "\""),
+			})
+			isFound = false
+		}
+	}
+	PrintTable([]string{"STATIC IP", "MAC ADDRESS"}, data, func(d dhcpConfig) []string {
+		return []string{d.IP, d.MACAddress}
+	}, "")
+	return nil
+}
+
 func GetLanUserDevInfo(ctx context.Context) error {
 	request, err := http.NewRequestWithContext(ctx, "GET", "http://192.168.1.1/html/bbsp/common/GetLanUserDevInfo.asp", nil)
 	if err != nil {
 		return err
 	}
 	resp, err := client.Do(request)
+	if err != nil {
+		return err
+	}
 	bytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -74,16 +127,16 @@ func GetLanUserDevInfo(ctx context.Context) error {
 			row := result[start:i]
 			cells := strings.Split(row, ",")
 			data = append(data, UserDevice{
-				IP:         LRStrip(cells[1]),
-				MACAddress: LRStrip(cells[2]),
-				PortID:     LRStrip(cells[3]),
-				Status:     LRStrip(cells[6]),
-				Hostname:   LRStrip(cells[9]),
+				IP:         strings.Trim(cells[1], "\""),
+				MACAddress: strings.Trim(cells[2], "\""),
+				PortID:     strings.Trim(cells[3], "\""),
+				Status:     strings.Trim(cells[6], "\""),
+				Hostname:   strings.Trim(cells[9], "\""),
 			})
 			isFound = false
 		}
 	}
-	PrintTable([]string{"IP", "MAC ADDRESS", "PORT ID",  "STATUS", "HOSTNAME"}, data, func(d UserDevice) []string {
+	PrintTable([]string{"IP", "MAC ADDRESS", "PORT ID", "STATUS", "HOSTNAME"}, data, func(d UserDevice) []string {
 		return []string{d.IP, d.MACAddress, d.PortID, d.Status, d.Hostname}
 	}, "")
 	return nil
@@ -95,6 +148,9 @@ func GetWanList(ctx context.Context) error {
 		return err
 	}
 	resp, err := client.Do(request)
+	if err != nil {
+		return err
+	}
 	bytes, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
 		return err
@@ -112,15 +168,11 @@ func GetWanList(ctx context.Context) error {
 			row := result[start:i]
 			cells := strings.Split(row, ",")
 			isFound = false
-			fmt.Println("GLOBAL IP:", LRStrip(cells[12]))
+			fmt.Println("GLOBAL IP:", strings.Trim(cells[12], "\""))
 			return nil
 		}
 	}
 	return nil
-}
-
-func LRStrip(s string) string {
-	return s[1 : len(s)-1]
 }
 
 func PrintTable[T any](columnNames []string, data []T, fn func(T) []string, prefix string) {
@@ -168,8 +220,8 @@ func Login(ctx context.Context, randCount string) error {
 		return errors.New("environment variable 'HG8045Q_PASSWORD' is not set")
 	}
 	request.Header = http.Header{
-		"Content-Type":              {"application/x-www-form-urlencoded"},
-		"Cookie":                    {fmt.Sprintf("Cookie=UserName:%s:PassWord:%s:Language:japanese:id=-1", username, base64.StdEncoding.EncodeToString([]byte(password)))},
+		"Content-Type": {"application/x-www-form-urlencoded"},
+		"Cookie":       {fmt.Sprintf("Cookie=UserName:%s:PassWord:%s:Language:japanese:id=-1", username, base64.StdEncoding.EncodeToString([]byte(password)))},
 	}
 	resp, err := client.Do(request)
 	if len(resp.Header["Set-Cookie"]) == 0 {
@@ -184,6 +236,18 @@ func Login(ctx context.Context, randCount string) error {
 		return err
 	}
 	resp, err = client.Do(request)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func Logout(ctx context.Context) error {
+	request, err := http.NewRequestWithContext(ctx, "GET", "http://192.168.1.1/logout.cgi", nil)
+	if err != nil {
+		return err
+	}
+	_, err = client.Do(request)
 	if err != nil {
 		return err
 	}
