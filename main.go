@@ -126,13 +126,17 @@ func GetLanUserDevInfo(ctx context.Context) error {
 		if isFound && strings.HasPrefix(result[i:], "),") {
 			row := result[start:i]
 			cells := strings.Split(row, ",")
-			data = append(data, UserDevice{
+			ud := UserDevice{
 				IP:         strings.Trim(cells[1], "\""),
 				MACAddress: strings.Trim(cells[2], "\""),
 				PortID:     strings.Trim(cells[3], "\""),
 				Status:     strings.Trim(cells[6], "\""),
 				Hostname:   strings.Trim(cells[9], "\""),
-			})
+			}
+			if ud.Status == "Offline" {
+				break
+			}
+			data = append(data, ud)
 			isFound = false
 		}
 	}
